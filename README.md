@@ -1,124 +1,20 @@
-# OVH Webhook for Cert Manager
+## Usage
 
-This is a webhook solver for [OVH](http://www.ovh.com).
+[Helm](https://helm.sh) must be installed to use the charts.  Please refer to
+Helm's [documentation](https://helm.sh/docs) to get started.
 
-## Prerequisites
+Once Helm has been set up correctly, add the repo as follows:
 
-* [cert-manager](https://github.com/jetstack/cert-manager) version 1.5.3 or higher:
-  - [Installing on Kubernetes](https://cert-manager.io/docs/installation/kubernetes/#installing-with-helm)
+  helm repo add cert-manager-webhook-ovh-charts https://h-wb.github.io/cert-manager-webhook-ovh/
 
-## Installation
+If you had already added this repo earlier, run `helm repo update` to retrieve
+the latest versions of the packages.  You can then run `helm search repo
+cert-manager-webhook-ovh-charts` to see the charts.
 
-Choose a unique group name to identify your company or organization (for example `acme.mycompany.example`).
+To install the cert-manager-webhook-ovh chart:
 
-```bash
-helm install cert-manager-webhook-ovh ./deploy/cert-manager-webhook-ovh \
- --set groupName='<YOUR_UNIQUE_GROUP_NAME>'
-```
+    helm install my-cert-manager-webhook-ovh cert-manager-webhook-ovh-charts/cert-manager-webhook-ovh
 
-If you customized the installation of cert-manager, you may need to also set the `certManager.namespace` and `certManager.serviceAccountName` values.
+To uninstall the chart:
 
-## Issuer
-
-1. [Create a new OVH API key](https://docs.ovh.com/gb/en/customer/first-steps-with-ovh-api/) with the following rights:
-    * `GET /domain/zone/*`
-    * `PUT /domain/zone/*`
-    * `POST /domain/zone/*`
-    * `DELETE /domain/zone/*`
-
-2. Create a secret to store your application secret:
-
-    ```bash
-    kubectl create secret generic ovh-credentials \
-      --from-literal=applicationSecret='<OVH_APPLICATION_SECRET>'
-    ```
-
-3. Grant permission to get the secret to the `cert-manager-webhook-ovh` service account:
-
-    ```yaml
-    apiVersion: rbac.authorization.k8s.io/v1
-    kind: Role
-    metadata:
-      name: cert-manager-webhook-ovh:secret-reader
-    rules:
-    - apiGroups: [""]
-      resources: ["secrets"]
-      resourceNames: ["ovh-credentials"]
-      verbs: ["get", "watch"]
-    ---
-    apiVersion: rbac.authorization.k8s.io/v1
-    kind: RoleBinding
-    metadata:
-      name: cert-manager-webhook-ovh:secret-reader
-    roleRef:
-      apiGroup: rbac.authorization.k8s.io
-      kind: Role
-      name: cert-manager-webhook-ovh:secret-reader
-    subjects:
-    - apiGroup: ""
-      kind: ServiceAccount
-      name: cert-manager-webhook-ovh
-    ```
-
-4. Create a certificate issuer:
-
-    ```yaml
-    apiVersion: cert-manager.io/v1
-    kind: Issuer
-    metadata:
-      name: letsencrypt
-    spec:
-      acme:
-        server: https://acme-v02.api.letsencrypt.org/directory
-        email: '<YOUR_EMAIL_ADDRESS>'
-        privateKeySecretRef:
-          name: letsencrypt-account-key
-        solvers:
-        - dns01:
-            webhook:
-              groupName: '<YOUR_UNIQUE_GROUP_NAME>'
-              solverName: ovh
-              config:
-                endpoint: ovh-eu
-                applicationKey: '<OVH_APPLICATION_KEY>'
-                applicationSecretRef:
-                  key: applicationSecret
-                  name: ovh-credentials
-                consumerKey: '<OVH_CONSUMER_KEY>'
-    ```
-
-## Certificate
-
-Issue a certificate:
-
-```yaml
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: example-com
-spec:
-  dnsNames:
-  - "example.com"
-  - "*.example.com"
-  issuerRef:
-    name: letsencrypt
-  secretName: example-com-tls
-```
-
-## Development
-
-All DNS providers **must** run the DNS01 provider conformance testing suite,
-else they will have undetermined behaviour when used with cert-manager.
-
-**It is essential that you configure and run the test suite when creating a
-DNS01 webhook.**
-
-An example Go test file has been provided in [main_test.go]().
-
-Before you can run the test suite, you need to duplicate the `.sample` files in `testdata/ovh/` and update the configuration with the appropriate OVH credentials.
-
-You can run the test suite with:
-
-```bash
-TEST_ZONE_NAME=example.com. make test
-```
+    helm delete my-cert-manager-webhook-ovh
